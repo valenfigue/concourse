@@ -82,11 +82,6 @@ public final class Cohorts {
         return cohorts;
     }
 
-    public static void main(String... args) {
-        System.out.println(Cohorts.electRandomCohorts(5, 1, 2, 3, 4, 5, 6, 7,
-                8, 9, 10));
-    }
-
     private Cohorts() {/* noop */}
 
 }
