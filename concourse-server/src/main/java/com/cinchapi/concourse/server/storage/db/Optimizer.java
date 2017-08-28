@@ -28,6 +28,15 @@ import com.cinchapi.concourse.server.io.Byteable;
 public interface Optimizer {
 
     /**
+     * Return {@code true} if, based on the {@link DatabaseContext}, it is
+     * necessary for this {@link Optimizer} to {@link #optimize(Block...) run}.
+     * 
+     * @param context the {@link DatabaseContext{
+     * @return {@code true} of optimization is needed
+     */
+    public boolean necessary(DatabaseContext context);
+
+    /**
      * Given one or more {@link Block blocks}, execute a strategy to optimize
      * the storage (i.e merge the blocks or split them into more blocks). The
      * optimized {@link Block blocks} are returned within a collection.
