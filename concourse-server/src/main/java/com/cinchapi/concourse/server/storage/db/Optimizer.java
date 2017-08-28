@@ -17,6 +17,8 @@ package com.cinchapi.concourse.server.storage.db;
 
 import java.util.Collection;
 
+import javax.annotation.Nullable;
+
 import com.cinchapi.concourse.server.io.Byteable;
 
 /**
@@ -45,11 +47,17 @@ public interface Optimizer {
      * {@link Block blocks} with the optimized ones in whatever capacities are
      * necessary.
      * </p>
+     * <p>
+     * If the {@link Optimizer} is unable to optimize the {@link Block blocks},
+     * this method will return {@code null}.
+     * </p>
      * 
      * @param blocks one or more {@link Block blocks} to optimize.
-     * @return the optimized {@link Block blocks}
+     * @return the optimized {@link Block blocks} or {@code null} if the
+     *         {@link Block blocks} are already fully optimized
      */
     @SuppressWarnings("unchecked")
+    @Nullable
     public <L extends Byteable & Comparable<L>, K extends Byteable & Comparable<K>, V extends Byteable & Comparable<V>> Collection<Block<L, K, V>> optimize(
             Block<L, K, V>... blocks);
 
