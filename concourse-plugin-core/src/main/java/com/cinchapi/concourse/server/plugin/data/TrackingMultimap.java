@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 2013-2017 Cinchapi Inc.
- * 
+ * Copyright (c) 2013-2018 Cinchapi Inc.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,10 +18,13 @@ package com.cinchapi.concourse.server.plugin.data;
 import java.util.AbstractMap;
 import java.util.AbstractSet;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.SortedSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -32,6 +35,7 @@ import org.apache.commons.math3.stat.StatUtils;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 
 import com.cinchapi.concourse.Link;
+import com.cinchapi.concourse.Timestamp;
 import com.cinchapi.concourse.thrift.TObject;
 import com.cinchapi.concourse.thrift.Type;
 import com.google.common.base.MoreObjects;
@@ -66,6 +70,19 @@ import com.google.common.collect.Sets;
 public abstract class TrackingMultimap<K, V> extends AbstractMap<K, Set<V>> {
 
     /**
+     * Throw an {@link UnsupportedOperationException} if {@code comparator} is
+     * {@code null}.
+     * 
+     * @param comparator
+     */
+    private static <K> void ensureSortSupport(Comparator<K> comparator) {
+        if(comparator == null) {
+            throw new UnsupportedOperationException(
+                    "No comparator provied so this method is unsurpported");
+        }
+    }
+
+    /**
      * Return the correct {@link DataType} for the {@code obj}.
      * 
      * @param obj the object to categorize
@@ -88,6 +105,10 @@ public abstract class TrackingMultimap<K, V> extends AbstractMap<K, Set<V>> {
         else if(isTObjectType(object, Type.BOOLEAN) || clazz == Boolean.class
                 || clazz == boolean.class) {
             return DataType.BOOLEAN;
+        }
+        else if(isTObjectType(object, Type.TIMESTAMP)
+                || clazz == Timestamp.class) {
+            return DataType.TIMESTAMP;
         }
         else {
             return DataType.UNKNOWN;
@@ -162,12 +183,20 @@ public abstract class TrackingMultimap<K, V> extends AbstractMap<K, Set<V>> {
      */
     private final AtomicLong totalValueCount;
 
+    private K min;
+    private K max;
+    private final Comparator<K> comparator;
+
     /**
      * Construct a new instance.
      * 
      * @param delegate an {@link Map#isEmpty() empty} map
+     * @param comparator - an optional {@link Comparator} for sorting the map
+     *            keys; if this is {@code null} this map will not support the
+     *            functionality of the {@link SortedMap} interface
      */
-    protected TrackingMultimap(Map<K, Set<V>> delegate) {
+    protected TrackingMultimap(Map<K, Set<V>> delegate,
+            @Nullable Comparator<K> comparator) {
         Preconditions.checkState(delegate.isEmpty());
         this.data = delegate;
         this.keyTypeCounts = new AtomicInteger[DataType.values().length];
@@ -175,6 +204,9 @@ public abstract class TrackingMultimap<K, V> extends AbstractMap<K, Set<V>> {
             this.keyTypeCounts[i] = new AtomicInteger(0);
         }
         this.totalValueCount = new AtomicLong(0);
+        this.comparator = comparator;
+        this.min = null;
+        this.max = null;
     }
 
     /**
@@ -215,7 +247,7 @@ public abstract class TrackingMultimap<K, V> extends AbstractMap<K, Set<V>> {
         Set<V> values = data.get(key);
         if(values != null && values.remove(value)) {
             if(values.isEmpty()) {
-                data.remove(values);
+                remove(key);
             }
             return true;
         }
@@ -310,6 +342,16 @@ public abstract class TrackingMultimap<K, V> extends AbstractMap<K, Set<V>> {
         if(values == null) {
             values = new ValueSetWrapper(key);
             data.put(key, values);
+
+            // Check to see if the key is smaller or larger than the current min
+            // and max.
+            if(comparator != null) {
+                min = min == null ? key
+                        : (comparator.compare(key, min) < 0 ? key : min);
+                max = max == null ? key
+                        : (comparator.compare(key, max) > 0 ? key : max);
+            }
+
         }
         if(values.add(value)) {
             return true;
@@ -317,6 +359,16 @@ public abstract class TrackingMultimap<K, V> extends AbstractMap<K, Set<V>> {
         else {
             return false;
         }
+    }
+
+    /**
+     * Alias for {@link #lastKey()}.
+     * 
+     * @return the last key in the map
+     */
+    public K max() {
+        ensureSortSupport(comparator);
+        return max;
     }
 
     /**
@@ -335,6 +387,16 @@ public abstract class TrackingMultimap<K, V> extends AbstractMap<K, Set<V>> {
     }
 
     /**
+     * Alias for {@link #firstKey()}.
+     * 
+     * @return the first key in the map
+     */
+    public K min() {
+        ensureSortSupport(comparator);
+        return min;
+    }
+
+    /**
      * Return the percent (between 0 and 1) of keys that are an instance of the
      * specified {@link DataType type}.
      * 
@@ -342,8 +404,9 @@ public abstract class TrackingMultimap<K, V> extends AbstractMap<K, Set<V>> {
      * @return the percent of keys of the {@code type}
      */
     public double percentKeyDataType(DataType type) {
-        return ((double) keyTypeCounts[type.ordinal()].get())
-                / totalValueCount.get();
+        double tvc = totalValueCount.get();
+        return (tvc == 0) ? 0
+                : ((double) keyTypeCounts[type.ordinal()].get()) / tvc;
     }
 
     /**
@@ -356,7 +419,8 @@ public abstract class TrackingMultimap<K, V> extends AbstractMap<K, Set<V>> {
      */
     public double proportion(K element) {
         double frequency = data.get(element).size();
-        return frequency / totalValueCount.get();
+        double tvc = totalValueCount.get();
+        return (tvc == 0) ? 0 : frequency / tvc;
     }
 
     /**
@@ -400,6 +464,16 @@ public abstract class TrackingMultimap<K, V> extends AbstractMap<K, Set<V>> {
         Set<V> values = data.get(key);
         if(values != null && values.isEmpty()) {
             data.remove(key);
+        }
+
+        // Check to see if the min/max need to be recalculated because the key
+        // was at one of the extremes
+        if(comparator != null && (min != null && min.equals(key))
+                || (max != null && max.equals(key))) {
+            SortedSet<K> sorted = Sets.newTreeSet(comparator);
+            sorted.addAll(data.keySet());
+            min = sorted.isEmpty() ? null : sorted.first();
+            max = sorted.isEmpty() ? null : sorted.last();
         }
         return stored;
 
@@ -528,7 +602,7 @@ public abstract class TrackingMultimap<K, V> extends AbstractMap<K, Set<V>> {
      * @author Jeff Nelson
      */
     public static enum DataType {
-        BOOLEAN, LINK, NUMBER, STRING, UNKNOWN;
+        BOOLEAN, LINK, NUMBER, STRING, UNKNOWN, TIMESTAMP;
     }
 
     /**
@@ -667,4 +741,5 @@ public abstract class TrackingMultimap<K, V> extends AbstractMap<K, Set<V>> {
             return values.toString();
         }
     }
+
 }

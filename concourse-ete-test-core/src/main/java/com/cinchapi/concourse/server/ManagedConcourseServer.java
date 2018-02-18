@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 2013-2017 Cinchapi Inc.
- * 
+ * Copyright (c) 2013-2018 Cinchapi Inc.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -48,6 +48,12 @@ import javax.management.remote.JMXServiceURL;
 
 import jline.TerminalFactory;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.Level;
+
+import com.cinchapi.ccl.grammar.Symbol;
 import com.cinchapi.common.base.ArrayBuilder;
 import com.cinchapi.common.base.CheckedExceptions;
 import com.cinchapi.common.process.Processes;
@@ -61,16 +67,9 @@ import com.cinchapi.concourse.Timestamp;
 import com.cinchapi.concourse.config.ConcourseClientPreferences;
 import com.cinchapi.concourse.config.ConcourseServerPreferences;
 import com.cinchapi.concourse.lang.Criteria;
-import com.cinchapi.concourse.lang.Symbol;
 import com.cinchapi.concourse.thrift.Diff;
 import com.cinchapi.concourse.thrift.Operator;
 import com.cinchapi.concourse.time.Time;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import ch.qos.logback.classic.Level;
-
 import com.cinchapi.concourse.util.ConcourseServerDownloader;
 import com.cinchapi.concourse.util.FileOps;
 import com.cinchapi.concourse.util.Strings;
@@ -349,6 +348,8 @@ public class ManagedConcourseServer {
      */
     private final ConcourseServerPreferences prefs;
 
+    private boolean destroyOnExit = true;
+
     /**
      * Construct a new instance.
      * 
@@ -363,7 +364,9 @@ public class ManagedConcourseServer {
 
             @Override
             public void run() {
-                destroy();
+                if(destroyOnExit) {
+                    destroy();
+                }
             }
 
         }));
@@ -389,6 +392,16 @@ public class ManagedConcourseServer {
      */
     public Concourse connect(String username, String password) {
         return new Client(username, password);
+    }
+
+    /**
+     * Set a flag that determines whether this instance will be destroyed on
+     * exit.
+     * 
+     * @param destroyOnExit
+     */
+    public void destroyOnExit(boolean destroyOnExit) {
+        this.destroyOnExit = destroyOnExit;
     }
 
     /**
@@ -468,12 +481,30 @@ public class ManagedConcourseServer {
     }
 
     /**
+     * Return the directory where the server stores buffer files.
+     * 
+     * @return the buffer directory
+     */
+    public Path getBufferDirectory() {
+        return Paths.get(prefs.getBufferDirectory());
+    }
+
+    /**
      * Return the client port for this server.
      * 
      * @return the client port
      */
     public int getClientPort() {
         return prefs.getClientPort();
+    }
+
+    /**
+     * Return the directory where the server stores database files.
+     * 
+     * @return the database directory
+     */
+    public Path getDatabaseDirectory() {
+        return Paths.get(prefs.getDatabaseDirectory());
     }
 
     /**
@@ -554,13 +585,14 @@ public class ManagedConcourseServer {
         log.info("Attempting to install plugins from {}", bundle);
         List<String> out = executeCli("plugin", "install", bundle.toString(),
                 "--username admin", "--password admin");
-        if(out.size() > 0 && out.get(0).contains("Successfully installed")) {
-            return true;
+        for (String line : out) {
+            if(line.contains("Successfully installed")) {
+                return true;
+            }
         }
-        else {
-            throw new RuntimeException(Strings
-                    .format("Unable to install plugin '{}': {}", bundle, out));
-        }
+        throw new RuntimeException(Strings
+                .format("Unable to install plugin '{}': {}", bundle, out));
+
     }
 
     /**

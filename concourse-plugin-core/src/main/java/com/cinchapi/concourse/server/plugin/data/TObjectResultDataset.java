@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 2013-2017 Cinchapi Inc.
- * 
+ * Copyright (c) 2013-2018 Cinchapi Inc.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,11 +16,12 @@
 package com.cinchapi.concourse.server.plugin.data;
 
 import java.nio.ByteBuffer;
-
-import io.atomix.catalyst.buffer.Buffer;
+import java.util.Map;
+import java.util.Set;
 
 import com.cinchapi.concourse.thrift.TObject;
 import com.cinchapi.concourse.thrift.Type;
+import io.atomix.catalyst.buffer.Buffer;
 
 /**
  * A {@link ResultDataset} that uses {@link TObject TObjects} for values.
@@ -55,6 +56,11 @@ public class TObjectResultDataset extends ResultDataset<TObject> {
         byte[] data = value.getData();
         buffer.writeInt(data.length);
         buffer.write(data);
+    }
+
+    @Override
+    protected Map<TObject, Set<Long>> createInvertedMultimap() {
+        return TrackingLinkedHashMultimap.create(TObject.comparator());
     }
 
 }

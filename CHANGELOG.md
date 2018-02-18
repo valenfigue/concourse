@@ -1,6 +1,62 @@
 ## Changelog
 
-#### Version 0.7.0
+#### Version 0.9.0 (TBD)
+* Added a `Criteria#at(Timestamp)` method to transform any `Criteria` object into one that has all clauses pinned to a specific `Timestamp`.
+* Added a static `Criteria#parse(String)` method to parse a CCL statement and produce an analogous `Criteria` object.
+* Streamlined the logic for server-side atomic operations to unlock higher performance potential.
+* Added [short-circuit evaluation](https://en.wikipedia.org/wiki/Short-circuit_evaluation) logic to the query parsing pipeline to improve performance.
+* Added a `TIMESTAMP` data type which makes it possible to store temporal values in Concourse.
+	* The `concourse-driver-java` API uses the [`Timestamp`](https://docs.cinchapi.com/concourse/api/java/com/cinchapi/concourse/Timestamp.html) class to represent `TIMESTAMP` values. Please note that hallow `Timestamps` (e.g. those created using the `Timestamp#fromString` method cannot be stored as values). An attempt to do so will throw an `UnsupportedOperationException`.
+	* The `concourse-driver-php` uses the [`DateTime`](http://php.net/manual/en/class.datetime.php) class to represent `TIMESTAMP` values.
+	* The `concourse-driver-python` uses the [`datetime`](https://docs.python.org/2/library/datetime.html) class to represent `TIMESTAMP` values.
+	* The `concourse-driver-ruby` uses the [`DateTime`](https://ruby-doc.org/stdlib-2.3.1/libdoc/date/rdoc/DateTime.html) class to represent `TIMESTAMP` values.
+	* The Concourse REST API allows specifying `TIMESTAMP` values as strings by prepending and appending a `|` to the value (e.g. `|December 30, 1987|`). It is also possible to specify a formatting pattern after the value like `|December 30, 1987|MMM dd, yyyy|`.
+* Added a `Timestamp#isDateOnly` method that returns `true` if a `Timestamp` does not contain a relevant temporal component (e.g. the `Timestamp` was created from a date string instead of a datetime string or a timestring).
+* Upgraded the CCL parser to a newer and more efficient version. This change will yield general performance improvements in methods that parse CCL statements during evaluation.
+* The test Concourse instance used in a `ClientServerTest` will no longer be automatically deleted when the test fails. This will allow for manual inspection of the instance when debugging the test failure.
+* Fixed a bug that caused the server to fail to start if the `conf/stopwords.txt` configuration file did not exist.
+* Added the ability for the storage engine to track stats and metadata about database structures.
+
+#### Version 0.8.1 (TBD)
+* Fixed a bug that caused local CCL resolution to not work in the `findOrInsert` methods.
+* Fixed an issue that caused conversion from string to `Operator` to be case sensitive.
+* Fixed a bug that caused the `putAll` method in the map returned from `TrackingMultimap#invert` to store data inconsistently.
+* Added better error handling for cases when an attempt is made to read with a value with a type that is not available in the client's version.
+* Fixed a bug that caused Concourse Server to unreliably stream data when multiple real-time plugins were installed.
+* Fixed a bug that caused Concourse Server to frequently cause high CPU usage when multiple real-time plugins were installed.
+
+#### Version 0.8.0 (December 14, 2017)
+* Added a `count` aggregation function that returns the number of values stored
+	* across a key,
+	* for a key in a record, or
+	* for a key in multiple records.
+* Added a `max` aggregation function that returns the largest numeric value stored
+	* across a key,
+	* for a key in a record, or
+	* for a key in multiple records.
+* Added a `min` aggregation function that returns the smallest numeric value stored
+	* across a key,
+	* for a key in a record, or
+	* for a key in multiple records.
+* Moved the `ccl` parsing logic into a [separate library](https://github.com/cinchapi/ccl) to make the process portable to plugins and other applications.
+* Fixed some bugs that could have caused incorrect evaluation of `select(criteria)`, `find(criteria)` and related methods in some cases.
+* Added a `TObject#is(operator, values...)` method so plugins can perform local operator based comparisons for values returned from the server.
+
+#### Version 0.7.3 (December 14, 2017)
+* Fixed a bug that caused the temporal `average` and `sum` calculations to fail if the `timestamp` parameter was generated from a `String` instead of `long`.
+* Fixed a couple of bugs that made it possible for Concourse Server to pass blank or unsanitized environment names to plugins during method invocations.
+* Fixed a bug that caused `Criteria` objects to be improperly serialized/deserialized when passed to plugin methods as arguments or used as return values.
+
+#### Version 0.7.2 (November 26, 2017)
+* Added more detailed information to the server and plugin log files about plugin errors.
+* Fixed a bug where `TrackingMultimap#percentKeyDataType` returned `NaN` instead of `0` when the map was empty.
+* Added a `memoryStorage` option to the `PluginStateContainer` class.
+
+#### Version 0.7.1 (November 22, 2017)
+* Fixed a bug that caused an error in some cases of importing or inserting data that contained a value of `-`.
+* Added better error message for TApplicationException in CaSH.
+
+#### Version 0.7.0 (November 19, 2017)
 * Added `navigate` methods that allow selecting data based on link traversal. For example, it is possible to select the names of the friends of record 1's friends by doing
 
 		navigate "friends.friends.name", 1
@@ -28,8 +84,6 @@
 * Implemented `describe()` and `describe(time)` methods to return all the keys across all records in the database.
 * Fixed a bug where the `browse(keys, timestamp)` functionality would return data from the present state instead of the historical snapshot.
 * Fixed an issue that caused plugins to use excessive CPU resources when watching the liveliness of the host Concourse Server process.
-
-#### Version 0.6.1
 * Added a bug fix that prevents service tokens from auto-expiring.
 * Added a `ps` command to the `plugins` CLI to display information about the running plugins.
 * Fixed a bug that caused the `average(key)` method to return the incorrect result.
@@ -37,6 +91,17 @@
 * Fixed a bug that caused the editing and deleting an existing user with the `users` CLI to always fail.
 * Added support for defining custom importers in `.jar` files.
 * Detect when the service is installed in an invalid directory and fail appropriately.
+* Fixed a security bug that allowed the `invokePlugin` method to not enforce access controls properly.
+* Fixed a bug that caused management CLIs to appear to fail when they actually succeeded.
+* Improved the performance of the `ResultDataSet#put` method.
+* Fixed a bug in the implementation of `ObjectResultDataset#count`.
+* Deprecated `Numbers#isEqual` and `Numbers#isEqualCastSafe` in favor of better names `Numbers#areEqual` and `Numbers#areEqualCastSafe`.
+* Added support for getting the min and max keys from a `TrackingMultimap`.
+* Added an `ImmutableTrackingMultimap` class.
+* Fixed a bug in the `TrackingMultimap#delete` method.
+* Fixed the CPU efficiency of the JavaApp host termination watcher.
+* Fix bug that caused JavaApp processes to hang if they ended before the host was terminated.
+* Added database-wide `describe` method.
 
 #### Version 0.6.0 (March 5, 2017)
 * Added `calculate` interface to the `java` driver to perform aggregations.
