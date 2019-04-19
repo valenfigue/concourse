@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package com.cinchapi.concourse;
 
+import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ import com.cinchapi.concourse.lang.Criteria;
 import com.cinchapi.concourse.thrift.Diff;
 import com.cinchapi.concourse.thrift.Operator;
 import com.cinchapi.concourse.util.Convert;
+import com.cinchapi.concourse.util.FileOps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 
@@ -70,6 +72,17 @@ import com.google.common.collect.Sets;
  */
 @NotThreadSafe
 public abstract class Concourse implements AutoCloseable {
+
+    /**
+     * Return a {@link ConnectionBuilder} to iteratively describe a Concourse
+     * connection. When finished, the connection can be established using the
+     * {@link ConnectionBuilder#connect()} method.
+     * 
+     * @return a {@link ConnectionBuilder}
+     */
+    public static ConnectionBuilder at() {
+        return new ConnectionBuilder();
+    }
 
     /**
      * Create a new connection to the Concourse deployment described in
@@ -130,6 +143,18 @@ public abstract class Concourse implements AutoCloseable {
     }
 
     /**
+     * Create a new connection using the information specified in the
+     * {@code prefs}.
+     * 
+     * @param prefs a {@link ConcourseClientPreferences prefs} handler
+     * @return the connection
+     */
+    public static Concourse connectWithPrefs(ConcourseClientPreferences prefs) {
+        return connect(prefs.getHost(), prefs.getPort(), prefs.getUsername(),
+                String.valueOf(prefs.getPassword()), prefs.getEnvironment());
+    }
+
+    /**
      * Create a new connection using the information specified in the prefs
      * {@code file}.
      * 
@@ -140,9 +165,8 @@ public abstract class Concourse implements AutoCloseable {
      */
     public static Concourse connectWithPrefs(String file) {
         ConcourseClientPreferences prefs = ConcourseClientPreferences
-                .open(file);
-        return connect(prefs.getHost(), prefs.getPort(), prefs.getUsername(),
-                String.valueOf(prefs.getPassword()), prefs.getEnvironment());
+                .from(Paths.get(file));
+        return connectWithPrefs(prefs);
     }
 
     /**
@@ -160,6 +184,12 @@ public abstract class Concourse implements AutoCloseable {
      * The interface to use for all {@link #calculate() calculation} methods.
      */
     private Calculator calculator = null;
+
+    /**
+     * The interface to all of Concourse's client-side {@link #manage()
+     * management} methods.
+     */
+    private Manager manager = null;
 
     /**
      * Abort the current transaction and discard any changes that are currently
@@ -1683,6 +1713,41 @@ public abstract class Concourse implements AutoCloseable {
     public abstract <T> T get(String key, long record, Timestamp timestamp);
 
     /**
+     * Return the stored value that was most recently added for {@code key} in
+     * {@code record}. If the field is empty, return {@code null}.
+     * 
+     * @param key the field name
+     * @param record the record id
+     * @return the freshest value in the field
+     */
+    @Nullable
+    public final <T> T get(String key, Long record) {
+        return get(key, record.longValue());
+    }
+
+    /**
+     * Return the stored value that was most recently added for {@code key} in
+     * {@code record} at {@code timestamp}. If the field was empty at
+     * {@code timestamp}, return {@code null}.
+     * 
+     * @param key the field name
+     * @param record the record id
+     * @param timestamp a {@link Timestamp} that represents the historical
+     *            instant to use in the lookup – created from either a
+     *            {@link Timestamp#fromString(String) natural language
+     *            description} of a point in time (i.e. two weeks ago), OR
+     *            the {@link Timestamp#fromMicros(long) number
+     *            of microseconds} since the Unix epoch, OR
+     *            a {@link Timestamp#fromJoda(org.joda.time.DateTime) Joda
+     *            DateTime} object
+     * @return the freshest value in the field at {@code timestamp}
+     */
+    @Nullable
+    public final <T> T get(String key, Long record, Timestamp timestamp) {
+        return get(key, record.longValue(), timestamp);
+    }
+
+    /**
      * For every record that matches the {@code criteria}, return the stored
      * value in the {@code key} field that was most recently added.
      * <p>
@@ -2227,6 +2292,19 @@ public abstract class Concourse implements AutoCloseable {
     public abstract boolean link(String key, long destination, long source);
 
     /**
+     * Return a {@link Manager} to perform management operations to the
+     * connected Concourse Server deployment.
+     * 
+     * @return the {@link Manager management} interface
+     */
+    public Manager manage() {
+        if(manager == null) {
+            manager = new Manager(this);
+        }
+        return manager;
+    }
+
+    /**
      * Traverse the document-graph along each of the navigation {@code keys},
      * starting at each of the {@code records} and return the data contained at
      * each of the destinations.
@@ -2588,6 +2666,44 @@ public abstract class Concourse implements AutoCloseable {
      */
     public abstract <T> Map<Long, Set<T>> navigate(String key, long record,
             Timestamp timestamp);
+
+    /**
+     * Return all the values stored for {@code key} in {@code record}.Iterates
+     * through the key splitted with dot(.) operator. Navigates only if the key
+     * has a link as value which points to another record.
+     * 
+     * @param key the field name
+     * @param record the record id
+     * @return a {@link Map} containing record and all the values stored in the
+     *         field
+     */
+    public final <T> Map<Long, Set<T>> navigate(String key, Long record) {
+        return navigate(key, record.longValue());
+    }
+
+    /**
+     * Return all the values stored for {@code key} in {@code record} at
+     * {@code timestamp}. Navigates through the key splitted with dot(.)
+     * operator. Iterates only if the key has a link as value which points to
+     * another record.
+     * 
+     * @param key the field name
+     * @param record the record id
+     * @param timestamp a {@link Timestamp} that represents the historical
+     *            instant to use in the lookup – created from either a
+     *            {@link Timestamp#fromString(String) natural language
+     *            description} of a point in time (i.e. two weeks ago), OR
+     *            the {@link Timestamp#fromMicros(long) number
+     *            of microseconds} since the Unix epoch, OR
+     *            a {@link Timestamp#fromJoda(org.joda.time.DateTime) Joda
+     *            DateTime} object
+     * @return a {@link Map} containing all the values stored in the field at
+     *         {@code timestamp}
+     */
+    public final <T> Map<Long, Set<T>> navigate(String key, Long record,
+            Timestamp timestamp) {
+        return navigate(key, record.longValue(), timestamp);
+    }
 
     /**
      * Return all the values stored for {@code key} in every record that
@@ -3155,6 +3271,39 @@ public abstract class Concourse implements AutoCloseable {
             Timestamp timestamp);
 
     /**
+     * Return all the data from {@code record}.
+     * 
+     * @param record the record id
+     * @return a {@link Map} associating each key in {@code record} to a
+     *         {@link Set} containing all the values stored in the respective
+     *         field
+     */
+    public final Map<String, Set<Object>> select(Long record) {
+        return select(record.longValue());
+    }
+
+    /**
+     * Return all the data from {@code record} at {@code timestamp}.
+     * 
+     * @param record the record id
+     * @param timestamp a {@link Timestamp} that represents the historical
+     *            instant to use in the lookup – created from either a
+     *            {@link Timestamp#fromString(String) natural language
+     *            description} of a point in time (i.e. two weeks ago), OR
+     *            the {@link Timestamp#fromMicros(long) number
+     *            of microseconds} since the Unix epoch, OR
+     *            a {@link Timestamp#fromJoda(org.joda.time.DateTime) Joda
+     *            DateTime} object
+     * @return a {@link Map} associating each key in {@code record} to a
+     *         {@link Set} containing all the values stored in the respective
+     *         field at {@code timestamp}
+     */
+    public final Map<String, Set<Object>> select(Long record,
+            Timestamp timestamp) {
+        return select(record.longValue(), timestamp);
+    }
+
+    /**
      * Return all the data from every record that matches {@code criteria}.
      * <p>
      * This method is syntactic sugar for {@link #select(Criteria)}. The only
@@ -3313,6 +3462,39 @@ public abstract class Concourse implements AutoCloseable {
      */
     public abstract <T> Set<T> select(String key, long record,
             Timestamp timestamp);
+
+    /**
+     * Return all the values stored for {@code key} in {@code record}.
+     * 
+     * @param key the field name
+     * @param record the record id
+     * @return a {@link Set} containing all the values stored in the field
+     */
+    public final <T> Set<T> select(String key, Long record) {
+        return select(key, record.longValue());
+    }
+
+    /**
+     * Return all the values stored for {@code key} in {@code record} at
+     * {@code timestamp}.
+     * 
+     * @param key the field name
+     * @param record the record id
+     * @param timestamp a {@link Timestamp} that represents the historical
+     *            instant to use in the lookup – created from either a
+     *            {@link Timestamp#fromString(String) natural language
+     *            description} of a point in time (i.e. two weeks ago), OR
+     *            the {@link Timestamp#fromMicros(long) number
+     *            of microseconds} since the Unix epoch, OR
+     *            a {@link Timestamp#fromJoda(org.joda.time.DateTime) Joda
+     *            DateTime} object
+     * @return a {@link Set} containing all the values stored in the field at
+     *         {@code timestamp}
+     */
+    public final <T> Set<T> select(String key, Long record,
+            Timestamp timestamp) {
+        return select(key, record.longValue(), timestamp);
+    }
 
     /**
      * Return all the values stored for {@code key} in every record that
@@ -3642,4 +3824,84 @@ public abstract class Concourse implements AutoCloseable {
      * @return a copy of this connection handle
      */
     protected abstract Concourse copyConnection();
+
+    /**
+     * An iterative builder for {@link Concourse} connections.
+     *
+     * @author Jeff Nelson
+     */
+    public static final class ConnectionBuilder {
+
+        /**
+         * Client connection preferences container.
+         */
+        private final ConcourseClientPreferences prefs = ConcourseClientPreferences
+                .from(Paths.get(FileOps.tempFile()));
+
+        /**
+         * Connect to the Concourse deployment described by this
+         * {@link ConnectionBuilder builder}.
+         * 
+         * @return the connection
+         */
+        public Concourse connect() {
+            return connectWithPrefs(prefs);
+        }
+
+        /**
+         * Set the connection environment.
+         * 
+         * @param environment
+         * @return this
+         */
+        public ConnectionBuilder environment(String environment) {
+            prefs.setEnvironment(environment);
+            return this;
+        }
+
+        /**
+         * Set the connection host.
+         * 
+         * @param host
+         * @return this
+         */
+        public ConnectionBuilder host(String host) {
+            prefs.setHost(host);
+            return this;
+        }
+
+        /**
+         * Set the connection password.
+         * 
+         * @param password
+         * @return this
+         */
+        public ConnectionBuilder password(String password) {
+            prefs.setPassword(password.toCharArray());
+            return this;
+        }
+
+        /**
+         * Set the connection port.
+         * 
+         * @param port
+         * @return this
+         */
+        public ConnectionBuilder port(int port) {
+            prefs.setPort(port);
+            return this;
+        }
+
+        /**
+         * Set the connection username.
+         * 
+         * @param username
+         * @return this
+         */
+        public ConnectionBuilder username(String username) {
+            prefs.setUsername(username);
+            return this;
+        }
+
+    }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@ import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import com.cinchapi.common.base.AnyStrings;
 import com.cinchapi.concourse.util.FileOps;
 import com.cinchapi.concourse.util.Resources;
-import com.cinchapi.concourse.util.Strings;
 import com.google.common.collect.Iterables;
 
 /**
@@ -57,7 +57,7 @@ public class ResolveKeyTest extends CsvImportTest {
         int i = 0;
         for (String line : lines) {
             if(i > 0) {
-                String[] toks = Strings
+                String[] toks = AnyStrings
                         .splitStringByDelimiterButRespectQuotes(line, ",");
                 String ipedsId = toks[0];
                 Long record = Iterables.get(records, i);

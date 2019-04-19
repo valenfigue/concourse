@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ import com.cinchapi.concourse.thrift.Type;
 import com.cinchapi.concourse.util.ByteBuffers;
 import com.cinchapi.concourse.util.Convert;
 import com.cinchapi.concourse.util.Numbers;
-import com.google.common.primitives.Longs;
 
 /**
  * A Value is an abstraction for a {@link TObject} that records type information
@@ -362,8 +361,7 @@ public final class Value implements Byteable, Comparable<Value> {
                     return 1;
                 }
                 else if(o1 instanceof Timestamp && o2 instanceof Timestamp) {
-                    return Longs.compare(((Timestamp) o1).getMicros(),
-                            ((Timestamp) o2).getMicros());
+                    return ((Timestamp) o1).compareTo((Timestamp) o2);
                 }
                 else {
                     // NOTE: Timestamp's #toString may change depending upon the

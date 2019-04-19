@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package com.cinchapi.concourse.cli;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 
 import javax.annotation.Nullable;
 
@@ -93,7 +94,7 @@ public abstract class CommandLineInterface {
                 options.prefs = FileOps.expandPath(options.prefs,
                         getLaunchDirectory());
                 ConcourseClientPreferences prefs = ConcourseClientPreferences
-                        .open(options.prefs);
+                        .from(Paths.get(options.prefs));
                 options.username = prefs.getUsername();
                 options.password = new String(prefs.getPasswordExplicit());
                 options.host = prefs.getHost();

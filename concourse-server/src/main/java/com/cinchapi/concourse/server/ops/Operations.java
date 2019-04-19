@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import java.util.Set;
 
 import com.cinchapi.ccl.Parser;
 import com.cinchapi.ccl.syntax.AbstractSyntaxTree;
+import com.cinchapi.common.base.StringSplitter;
 import com.cinchapi.concourse.Constants;
 import com.cinchapi.concourse.Link;
 import com.cinchapi.concourse.server.ConcourseServer.DeferredWrite;
@@ -44,7 +45,6 @@ import com.cinchapi.concourse.util.DataServices;
 import com.cinchapi.concourse.util.LinkNavigation;
 import com.cinchapi.concourse.util.Numbers;
 import com.cinchapi.concourse.util.Parsers;
-import com.cinchapi.concourse.util.StringSplitter;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
@@ -554,6 +554,18 @@ public final class Operations {
         return result;
     }
 
+    /**
+     * Do the work to atomically to navigate all the values for the specified
+     * {@code keys} in the specified {@code records} and if its of type
+     * {@value Type.LINK}, iterate until the key is not {@value Type.LINK} and
+     * return the result.
+     * 
+     * @param List<String> keys
+     * @param record
+     * @param atomic
+     * @return Map<String, Set<TObject>> set of values.
+     * @throws ParseException
+     */
     public static Map<Long, Map<String, Set<TObject>>> navigateKeysRecordsAtomic(
             List<String> keys, Set<Long> records, long timestamp,
             AtomicOperation atomic) {

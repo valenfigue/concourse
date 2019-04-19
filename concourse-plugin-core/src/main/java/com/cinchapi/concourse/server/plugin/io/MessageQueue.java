@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,10 +33,10 @@ import java.util.Map.Entry;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import com.cinchapi.common.base.AnyStrings;
 import com.cinchapi.common.base.CheckedExceptions;
 import com.cinchapi.concourse.server.plugin.concurrent.FileLocks;
 import com.cinchapi.concourse.util.FileOps;
-import com.cinchapi.concourse.util.Strings;
 import com.google.common.collect.Maps;
 
 /**
@@ -172,7 +172,7 @@ public class MessageQueue implements InterProcessCommunication, AutoCloseable {
             });
             acceptor.setDaemon(true);
             acceptor.setUncaughtExceptionHandler((t, e) -> {
-                RuntimeException ex = new RuntimeException(Strings.format(
+                RuntimeException ex = new RuntimeException(AnyStrings.format(
                         "Uncaught exception in Thread {}: {}", t, e), e);
                 ex.printStackTrace();
             });
@@ -285,7 +285,7 @@ public class MessageQueue implements InterProcessCommunication, AutoCloseable {
 
     @Override
     public String toString() {
-        return Strings.format("MessageQueue[pending = {}]", messages);
+        return AnyStrings.format("MessageQueue[pending = {}]", messages);
     }
 
 }

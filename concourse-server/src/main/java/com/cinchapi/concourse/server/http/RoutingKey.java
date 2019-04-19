@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ package com.cinchapi.concourse.server.http;
 
 import javax.annotation.concurrent.Immutable;
 
-import com.cinchapi.concourse.util.StringSplitter;
-import com.cinchapi.concourse.util.Strings;
+import com.cinchapi.common.base.AnyStrings;
+import com.cinchapi.common.base.StringSplitter;
 
 /**
  * A {@link RoutingKey} contains information to uniquely identify a
@@ -128,7 +128,7 @@ public final class RoutingKey {
 
     @Override
     public String toString() {
-        return Strings.join(':', group, module, cls);
+        return AnyStrings.join(':', group, module, cls);
     }
 
 }

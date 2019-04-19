@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ import java.util.List;
 
 import org.apache.commons.lang.StringUtils;
 
+import com.cinchapi.common.base.AnyStrings;
+import com.cinchapi.common.base.StringSplitter;
 import com.cinchapi.concourse.server.GlobalState;
 import com.google.common.collect.Lists;
 
@@ -79,7 +81,7 @@ public final class TStrings {
             }
             String n = needle[npos];
             String h = haystack[hpos];
-            if(Strings.isSubString(n, h)) {
+            if(AnyStrings.isSubString(n, h)) {
                 ++npos;
                 ++hpos;
             }

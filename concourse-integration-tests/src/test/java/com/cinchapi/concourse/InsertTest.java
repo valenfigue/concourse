@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@ import java.util.Set;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.cinchapi.common.base.AnyStrings;
 import com.cinchapi.concourse.test.ConcourseIntegrationTest;
 import com.cinchapi.concourse.thrift.Operator;
-import com.cinchapi.concourse.util.Strings;
 import com.cinchapi.concourse.util.TestData;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Iterables;
@@ -119,7 +119,6 @@ public class InsertTest extends ConcourseIntegrationTest {
                 client.find("spouse", Operator.LINKS_TO, 1).contains(record));
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testInsertResolvableLinkWithLocalTargets() {
         Multimap<String, Object> a = HashMultimap.create();
@@ -132,7 +131,7 @@ public class InsertTest extends ConcourseIntegrationTest {
         Assert.assertEquals(
                 Sets.newHashSet(
                         Iterables.getOnlyElement(client.find("_id = 1"))),
-                client.find(Strings.format("bar lnks2 {}", record)));
+                client.find(AnyStrings.format("bar lnks2 {}", record)));
     }
 
     @Test

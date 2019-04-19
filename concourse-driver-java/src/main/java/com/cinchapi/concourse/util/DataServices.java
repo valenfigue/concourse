@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,6 @@
  */
 package com.cinchapi.concourse.util;
 
-import java.util.Collection;
-import java.util.Map;
-
-import com.cinchapi.concourse.thrift.TObject;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParser;
@@ -52,14 +48,10 @@ public class DataServices {
      * THE Gson.
      */
     private static final Gson GSON = new GsonBuilder()
-            .registerTypeAdapter(Object.class,
-                    TypeAdapters.forGenericObject().nullSafe())
-            .registerTypeAdapter(TObject.class,
-                    TypeAdapters.forTObject().nullSafe())
-            .registerTypeHierarchyAdapter(Collection.class,
-                    TypeAdapters.forCollection().nullSafe())
-            .registerTypeHierarchyAdapter(Map.class,
-                    TypeAdapters.forMap().nullSafe())
+            .registerTypeAdapterFactory(
+                    TypeAdapters.primitiveTypesFactory(true))
+            .registerTypeAdapterFactory(TypeAdapters.tObjectFactory(true))
+            .registerTypeAdapterFactory(TypeAdapters.collectionFactory(true))
             .disableHtmlEscaping().create();
 
     /**

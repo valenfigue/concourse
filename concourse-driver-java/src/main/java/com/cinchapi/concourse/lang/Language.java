@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ import com.cinchapi.ccl.grammar.ParenthesisSymbol;
 import com.cinchapi.ccl.grammar.Symbol;
 import com.cinchapi.ccl.grammar.TimestampSymbol;
 import com.cinchapi.ccl.grammar.ValueSymbol;
+import com.cinchapi.common.base.AnyStrings;
+import com.cinchapi.common.reflect.Reflection;
 import com.cinchapi.concourse.thrift.TCriteria;
 import com.cinchapi.concourse.thrift.TSymbol;
 import com.cinchapi.concourse.thrift.TSymbolType;
@@ -37,6 +39,13 @@ import com.google.common.collect.Lists;
  * @author Jeff Nelson
  */
 public final class Language {
+
+    /**
+     * The character that indicates a String should be treated as a
+     * {@link com.cinchapi.concourse.Tag}.
+     */
+    private static final char TAG_MARKER = Reflection.getStatic("TAG_MARKER",
+            Convert.class); // (authorized)
 
     /**
      * Translate the {@link TSymbol} to its Java analog.
@@ -52,7 +61,17 @@ public final class Language {
             return new KeySymbol(tsymbol.getSymbol());
         }
         else if(tsymbol.getType() == TSymbolType.VALUE) {
-            return new ValueSymbol(Convert.stringToJava(tsymbol.getSymbol()));
+            Object symbol = Convert.stringToJava(tsymbol.getSymbol());
+            if(symbol instanceof String && !symbol.equals(tsymbol.getSymbol())
+                    && AnyStrings.isWithinQuotes(tsymbol.getSymbol(),
+                            TAG_MARKER)) {
+                // CON-634: This is an obscure corner case where the surrounding
+                // quotes on the original tsymbol were necessary to escape a
+                // keyword, but got dropped because of the logic in
+                // Convert#stringToJava
+                symbol = AnyStrings.ensureWithinQuotes(symbol.toString());
+            }
+            return new ValueSymbol(symbol);
         }
         else if(tsymbol.getType() == TSymbolType.PARENTHESIS) {
             return ParenthesisSymbol.parse(tsymbol.getSymbol());

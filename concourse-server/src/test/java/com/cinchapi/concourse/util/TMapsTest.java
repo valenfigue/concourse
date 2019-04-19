@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.cinchapi.common.base.AnyStrings;
 import com.cinchapi.common.profile.Benchmark;
 import com.cinchapi.concourse.server.plugin.data.TObjectResultDataset;
 import com.cinchapi.concourse.thrift.TObject;
@@ -98,12 +99,12 @@ public class TMapsTest {
         latch.await();
         double datasetTimeDigits = Math.ceil(Math.log10(datasetTime.get()));
         double mapTimeDigits = Math.ceil(Math.log10(mapTime.get()));
-        System.out.println(Strings.format("Dataset = {} {} with {} digits",
+        System.out.println(AnyStrings.format("Dataset = {} {} with {} digits",
                 datasetTime.get(), unit, datasetTimeDigits));
-        System.out.println(Strings.format("Map = {} {} with {} digits",
+        System.out.println(AnyStrings.format("Map = {} {} with {} digits",
                 mapTime.get(), unit, mapTimeDigits));
         Assert.assertTrue(
-                Strings.format("Datset took {} {} and Map took {} {}",
+                AnyStrings.format("Datset took {} {} and Map took {} {}",
                         datasetTime.get(), unit, mapTime.get(), unit),
                 datasetTimeDigits - mapTimeDigits <= 1);
 

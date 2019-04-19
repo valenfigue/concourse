@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package com.cinchapi.concourse.server.plugin.util;
 
 import java.util.Arrays;
 
-import com.cinchapi.concourse.util.Strings;
+import com.cinchapi.common.base.AnyStrings;
 import com.github.zafarkhaja.semver.Version;
 
 /**
@@ -47,7 +47,7 @@ public final class Versions {
                     .append(toks[2]);
             toks = toks[3].split("-");
             if(toks.length > 1) {
-                sb.append('-').append(Strings.join("-",
+                sb.append('-').append(AnyStrings.join("-",
                         (Object[]) Arrays.copyOfRange(toks, 1, toks.length)));
             }
             sb.append('+').append(toks[0]);

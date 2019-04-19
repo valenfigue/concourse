@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import java.util.Set;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.cinchapi.common.base.CheckedExceptions;
 import com.cinchapi.concourse.importer.CsvImporter;
 import com.cinchapi.concourse.importer.Importer;
 import com.cinchapi.concourse.lang.Criteria;
@@ -31,7 +32,6 @@ import com.cinchapi.concourse.test.ConcourseIntegrationTest;
 import com.cinchapi.concourse.test.Variables;
 import com.cinchapi.concourse.thrift.Operator;
 import com.cinchapi.concourse.util.Resources;
-import com.google.common.base.Throwables;
 import com.google.common.collect.Sets;
 
 /**
@@ -61,7 +61,7 @@ public class FindCriteriaTest extends ConcourseIntegrationTest {
             sql = conn.createStatement();
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw CheckedExceptions.wrapAsRuntimeException(e);
         }
 
         super.beforeEachTest();
@@ -189,6 +189,14 @@ public class FindCriteriaTest extends ConcourseIntegrationTest {
                 .build()));
     }
 
+    @Test
+    public void testReproCON_634() {
+        client.find("foo = \"a and b\"");
+        client.find(Criteria.where().key("foo").operator(Operator.EQUALS)
+                .value("\"a and b\"").build());
+        Assert.assertTrue(true); // lack of Exception means test passes
+    }
+
     /**
      * Validate that the {@code criteria} returns the same result in Concourse
      * as it does in a relational database.
@@ -216,7 +224,7 @@ public class FindCriteriaTest extends ConcourseIntegrationTest {
 
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw CheckedExceptions.wrapAsRuntimeException(e);
         }
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -304,8 +304,8 @@ public class ParserTest {
     @Test
     public void testToPostfixNotationAndOr() {
         Criteria criteria = Criteria.where().key("a").operator(Operator.EQUALS)
-                .value("1").and().key("b").operator(Operator.EQUALS).value(2)
-                .or().key("c").operator(Operator.EQUALS).value(3).build();
+                .value(1).and().key("b").operator(Operator.EQUALS).value(2).or()
+                .key("c").operator(Operator.EQUALS).value(3).build();
         Queue<PostfixNotationSymbol> pfn = Parsing
                 .toPostfixNotation(criteria.getSymbols());
         Assert.assertEquals(pfn.size(), 5);
@@ -330,7 +330,7 @@ public class ParserTest {
         Criteria criteria = Criteria.where().key("a").operator(Operator.EQUALS)
                 .value("1").and().key("b").operator(Operator.EQUALS).value(2)
                 .or().key("c").operator(Operator.EQUALS).value(3).build();
-        String ccl = "a = 1 and b = 2 or c = 3";
+        String ccl = "a = '1' and b = 2 or c = 3";
         Parser parser = Parsers.create(ccl);
         Assert.assertEquals(Parsing.toPostfixNotation(criteria.getSymbols()),
                 parser.order());
@@ -680,7 +680,7 @@ public class ParserTest {
     @Test
     public void testParseCclBetweenWithBothReferences() {
         Criteria criteria = Criteria.where().key("age")
-                .operator(Operator.BETWEEN).value("30").value("35").build();
+                .operator(Operator.BETWEEN).value(30).value(35).build();
         String ccl = "where age bw $age $retireAge";
         Multimap<String, Object> data = LinkedHashMultimap.create();
         data.put("name", "Lebron James");
@@ -695,7 +695,7 @@ public class ParserTest {
     @Test
     public void testParseCclBetweenWithFirstReference() {
         Criteria criteria = Criteria.where().key("age")
-                .operator(Operator.BETWEEN).value("30").value("100").build();
+                .operator(Operator.BETWEEN).value(30).value(100).build();
         String ccl = "where age bw $age 100";
         Multimap<String, Object> data = LinkedHashMultimap.create();
         data.put("name", "Lebron James");
@@ -709,7 +709,7 @@ public class ParserTest {
     @Test
     public void testParseCclBetweenWithSecondReference() {
         Criteria criteria = Criteria.where().key("age")
-                .operator(Operator.BETWEEN).value("5").value("30").build();
+                .operator(Operator.BETWEEN).value(5).value(30).build();
         String ccl = "where age bw 5 $age";
         Multimap<String, Object> data = LinkedHashMultimap.create();
         data.put("name", "Lebron James");
@@ -730,6 +730,7 @@ public class ParserTest {
         Assert.assertEquals("Atlanta (HQ)", expr.raw().values().get(0));
     }
 
+    @Test
     public void testParseCclNoSpaces() {
         String ccl = "name=jeff";
         Parser parser = Parsers.create(ccl);
@@ -746,5 +747,13 @@ public class ParserTest {
                 Assert.assertTrue(true);
             }
         }
+    }
+
+    @Test
+    public void testReproCCL_11() {
+        String ccl = "user LINKS_TO 1234";
+        Parser parser = Parsers.create(ccl);
+        parser.parse();
+        Assert.assertTrue(true); // lack of Exception means we pass
     }
 }

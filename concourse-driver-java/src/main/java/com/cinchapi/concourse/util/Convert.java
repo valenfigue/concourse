@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -33,6 +33,8 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
 import com.cinchapi.ccl.util.NaturalLanguage;
+import com.cinchapi.common.base.AnyStrings;
+import com.cinchapi.common.base.CheckedExceptions;
 import com.cinchapi.concourse.Concourse;
 import com.cinchapi.concourse.Link;
 import com.cinchapi.concourse.Tag;
@@ -44,7 +46,6 @@ import com.cinchapi.concourse.thrift.TObject;
 import com.cinchapi.concourse.thrift.Type;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -143,6 +144,11 @@ public final class Convert {
             .compile("^@(?=.*[ ]).+@$");
 
     /**
+     * The character that indicates a String should be treated as a {@link Tag}.
+     */
+    private static final char TAG_MARKER = '`';
+
+    /**
      * Takes a JSON string representation of an object or an array of JSON
      * objects and returns a list of {@link Multimap multimaps} with the
      * corresponding data. Unlike {@link #jsonToJava(String)}, this method will
@@ -172,53 +178,9 @@ public final class Convert {
             }
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw CheckedExceptions.wrapAsRuntimeException(e);
         }
         return result;
-    }
-
-    /**
-     * Return a List that represents the Thrift representation of each of the
-     * {@code objects} in the input list.
-     * 
-     * @param objects a List of java objects
-     * @return a List of TObjects
-     */
-    public static List<TObject> javaListToThrift(List<Object> objects) {
-        List<TObject> thrift = Lists.newArrayListWithCapacity(objects.size());
-        javaCollectionToThrift(objects, thrift);
-        return thrift;
-    }
-
-    /**
-     * Return a Map that represents the Thrift representation of each of the
-     * {@code objects} in the input Map.
-     * 
-     * @param objects a Map of java objects
-     * @return a Map of TObjects
-     */
-    public static <K> Map<K, TObject> javaMapToThrift(Map<K, Object> objects) {
-        Map<K, TObject> thrift = Maps.newLinkedHashMap();
-        for (Entry<K, Object> entry : objects.entrySet()) {
-            K key = entry.getKey();
-            TObject value = javaToThrift(entry.getValue());
-            thrift.put(key, value);
-        }
-        return thrift;
-    }
-
-    /**
-     * Return a Set that represents the Thrift representation of each of the
-     * {@code objects} in the input Set.
-     * 
-     * @param objects a Set of java objects
-     * @return a Set of TObjects
-     */
-    public static Set<TObject> javaSetToThrift(Set<Object> objects) {
-        Set<TObject> thrift = Sets
-                .newLinkedHashSetWithExpectedSize(objects.size());
-        javaCollectionToThrift(objects, thrift);
-        return thrift;
     }
 
     /**
@@ -320,7 +282,7 @@ public final class Convert {
             return jsonToJava(reader);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw CheckedExceptions.wrapAsRuntimeException(e);
         }
     }
 
@@ -438,18 +400,20 @@ public final class Convert {
             return (T) thriftToJava((TObject) tobject);
         }
         else if(tobject instanceof List) {
-            return (T) Lists.transform((List<?>) tobject,
-                    Conversions.possibleThriftToJava());
+            return (T) ((List<?>) tobject).stream()
+                    .map(Convert::possibleThriftToJava)
+                    .collect(Collectors.toList());
         }
         else if(tobject instanceof Set) {
-            return (T) Transformers.transformSetLazily((Set<Object>) tobject,
-                    Conversions.possibleThriftToJava());
+            return (T) ((Set<?>) tobject).stream()
+                    .map(Convert::possibleThriftToJava)
+                    .collect(Collectors.toSet());
         }
         else if(tobject instanceof Map) {
-            return (T) Transformers.transformMapEntries(
-                    (Map<Object, Object>) tobject,
-                    Conversions.possibleThriftToJava(),
-                    Conversions.possibleThriftToJava());
+            return (T) ((Map<?, ?>) tobject).entrySet().stream()
+                    .collect(Collectors.toMap(
+                            e -> possibleThriftToJava(e.getKey()),
+                            e -> possibleThriftToJava(e.getValue())));
         }
         else {
             return (T) tobject;
@@ -497,7 +461,7 @@ public final class Convert {
         char first = value.charAt(0);
         char last = value.charAt(value.length() - 1);
         Long record;
-        if(Strings.isWithinQuotes(value)) {
+        if(AnyStrings.isWithinQuotes(value, TAG_MARKER)) {
             // keep value as string since its between single or double quotes
             return value.substring(1, value.length() - 1);
         }
@@ -517,7 +481,7 @@ public final class Convert {
         else if(value.equalsIgnoreCase("false")) {
             return false;
         }
-        else if(first == '`' && last == '`') {
+        else if(first == TAG_MARKER && last == TAG_MARKER) {
             return Tag.create(value.substring(1, value.length() - 1));
         }
         else if(first == '|' && last == '|') {
@@ -545,7 +509,7 @@ public final class Convert {
             return timestamp;
         }
         else {
-            return MoreObjects.firstNonNull(Strings.tryParseNumber(value),
+            return MoreObjects.firstNonNull(AnyStrings.tryParseNumber(value),
                     value);
         }
     }
@@ -597,7 +561,7 @@ public final class Convert {
      * @return An instruction to create a {@link ResolvableLink}
      */
     public static String stringToResolvableLinkInstruction(String ccl) {
-        return Strings.joinSimple(RAW_RESOLVABLE_LINK_SYMBOL_PREPEND, ccl,
+        return AnyStrings.joinSimple(RAW_RESOLVABLE_LINK_SYMBOL_PREPEND, ccl,
                 RAW_RESOLVABLE_LINK_SYMBOL_APPEND);
     }
 
@@ -628,21 +592,7 @@ public final class Convert {
     public static String stringToResolvableLinkSpecification(String key,
             String rawValue) {
         return stringToResolvableLinkInstruction(
-                Strings.joinWithSpace(key, "=", rawValue));
-    }
-
-    /**
-     * Return a Set that represents the Java representation of each of the
-     * {@code TObjects} in the input Set.
-     * 
-     * @param objects a Set of TObjects
-     * @return a Set of Java objects
-     */
-    public static Set<Object> thriftSetToJava(Set<TObject> tobjects) {
-        Set<Object> java = Sets
-                .newLinkedHashSetWithExpectedSize(tobjects.size());
-        thriftCollectionToJava(tobjects, java);
-        return java;
+                AnyStrings.joinWithSpace(key, "=", rawValue));
     }
 
     /**
@@ -694,21 +644,6 @@ public final class Convert {
             buffer.rewind();
         }
         return java;
-    }
-
-    /**
-     * In-place implementation for converting a collection of java objects to a
-     * typed {@code output} collection of TObjects.
-     * 
-     * @param input the original collection to convert
-     * @param output the output collection into which the converted objects are
-     *            placed
-     */
-    private static void javaCollectionToThrift(Collection<Object> input,
-            Collection<TObject> output) {
-        for (Object elt : input) {
-            output.add(javaToThrift(elt));
-        }
     }
 
     /**
@@ -824,21 +759,6 @@ public final class Convert {
         }
         catch (IOException | IllegalStateException e) {
             throw new JsonParseException(e.getMessage());
-        }
-    }
-
-    /**
-     * In-place implementation for converting a collection of TObjects to a
-     * typed {@code output} collection of java objects.
-     * 
-     * @param input the original collection to convert
-     * @param output the output collection into which the converted objects are
-     *            placed
-     */
-    private static void thriftCollectionToJava(Collection<TObject> input,
-            Collection<Object> output) {
-        for (TObject elt : input) {
-            output.add(thriftToJava(elt));
         }
     }
 
@@ -967,8 +887,8 @@ public final class Convert {
 
         @Override
         public String toString() {
-            return Strings.format("{} for {}", this.getClass().getSimpleName(),
-                    ccl);
+            return AnyStrings.format("{} for {}",
+                    this.getClass().getSimpleName(), ccl);
         }
 
     }

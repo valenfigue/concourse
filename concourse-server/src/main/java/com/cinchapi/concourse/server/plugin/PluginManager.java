@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,6 +48,8 @@ import org.reflections.Reflections;
 import org.reflections.util.ClasspathHelper;
 import org.reflections.util.ConfigurationBuilder;
 
+import com.cinchapi.common.base.AnyStrings;
+import com.cinchapi.common.base.CheckedExceptions;
 import com.cinchapi.common.reflect.Reflection;
 import com.cinchapi.concourse.server.ConcourseServer;
 import com.cinchapi.concourse.server.io.FileSystem;
@@ -67,7 +69,6 @@ import com.cinchapi.concourse.util.Logger;
 import com.cinchapi.concourse.util.MorePaths;
 import com.cinchapi.concourse.util.Queues;
 import com.cinchapi.concourse.util.Resources;
-import com.cinchapi.concourse.util.Strings;
 import com.cinchapi.concourse.util.ZipFiles;
 import com.github.zafarkhaja.semver.Version;
 import com.google.common.base.Throwables;
@@ -388,7 +389,7 @@ public class PluginManager {
                 .getNameWithoutExtension(bundle);
         String name = null;
         try {
-            String manifest = ZipFiles.getEntryContent(bundle,
+            String manifest = ZipFiles.getEntryContentUtf8(bundle,
                     basename + File.separator + MANIFEST_FILE);
             JsonObject json = (JsonObject) new JsonParser().parse(manifest);
             name = json.get("bundleName").getAsString();
@@ -460,7 +461,7 @@ public class PluginManager {
                             + "configured to use the alias '{}' so it is not permitted. "
                             + "Please invoke the plugin using its full qualified name"
                     : "No plugin with id or alias {} exists";
-            throw new PluginException(Strings.format(message, clazz));
+            throw new PluginException(AnyStrings.format(message, clazz));
         }
         RemoteMethodRequest request = new RemoteMethodRequest(method, creds,
                 transaction, environment, args);
@@ -474,7 +475,8 @@ public class PluginManager {
             return response.response;
         }
         else {
-            throw new PluginException(Strings.format(
+            Logger.error("Plugin Exception:", response.error);
+            throw new PluginException(AnyStrings.format(
                     "An error occurred when invoking '{}' in '{}': ", method,
                     clazz, response.error));
         }
@@ -711,7 +713,7 @@ public class PluginManager {
             Logger.error(
                     "An error occurred while trying to activate the plugin bundle '{}'",
                     bundle, e);
-            throw Throwables.propagate(e);
+            throw CheckedExceptions.wrapAsRuntimeException(e);
         }
     }
 
@@ -824,7 +826,7 @@ public class PluginManager {
                 launch(bundle, prefs, plugin, classpath);
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                throw CheckedExceptions.wrapAsRuntimeException(e);
             }
         });
 

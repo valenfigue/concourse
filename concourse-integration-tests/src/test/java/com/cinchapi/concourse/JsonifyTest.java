@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Cinchapi Inc.
+ * Copyright (c) 2013-2019 Cinchapi Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -154,5 +154,12 @@ public class JsonifyTest extends ConcourseIntegrationTest {
         List<Map<String, Set<Object>>> actual = Lists
                 .newArrayList(client.select(created).values());
         Assert.assertEquals(expected, actual);
+    }
+
+    @Test
+    public void testJsonifyTimestamp() {
+        client.add("time", Timestamp.now());
+        client.jsonify(client.inventory(), false);
+        Assert.assertTrue(true); // lack of exceptions means we pass
     }
 }
