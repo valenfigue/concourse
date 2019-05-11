@@ -29,11 +29,10 @@ import com.google.common.collect.Lists;
  * @author Jeff Nelson
  */
 public abstract class AbstractBlockProvider<L extends Byteable & Comparable<L>>
-        implements
-        BlockProvider<L> {
+        implements BlockProvider<L> {
 
     /**
-     * The 
+     * The
      */
     private final List<Block<L, ?, ?>> blocks = Lists.newArrayList();
 

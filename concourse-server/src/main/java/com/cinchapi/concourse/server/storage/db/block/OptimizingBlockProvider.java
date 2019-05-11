@@ -26,8 +26,7 @@ import com.cinchapi.concourse.server.storage.db.Block;
  * @author jeff
  */
 public class OptimizingBlockProvider<L extends Byteable & Comparable<L>>
-        implements
-        BlockProvider<L> {
+        implements BlockProvider<L> {
 
     /*
      * The optimizer should periodically check if optimization is
@@ -42,7 +41,7 @@ public class OptimizingBlockProvider<L extends Byteable & Comparable<L>>
      */
 
     private Optimizer<L> optimizer; // TODO: make final
-    
+
     public OptimizingBlockProvider(Optimizer<L> optimizer) {
         this.optimizer = optimizer;
     }
@@ -60,13 +59,17 @@ public class OptimizingBlockProvider<L extends Byteable & Comparable<L>>
         return null;
     }
 
-    /* (non-Javadoc)
-     * @see com.cinchapi.concourse.server.storage.db.block.BlockProvider#add(com.cinchapi.concourse.server.storage.db.Block)
+    /*
+     * (non-Javadoc)
+     * 
+     * @see
+     * com.cinchapi.concourse.server.storage.db.block.BlockProvider#add(com.
+     * cinchapi.concourse.server.storage.db.Block)
      */
     @Override
     public void add(Block<L, ?, ?> block) {
         // TODO Auto-generated method stub
-        
+
     }
 
 }
