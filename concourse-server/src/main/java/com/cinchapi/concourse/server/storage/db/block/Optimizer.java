@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.cinchapi.concourse.server.storage.db;
+package com.cinchapi.concourse.server.storage.db.block;
 
 import java.util.Collection;
 
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 
 import com.cinchapi.concourse.server.io.Byteable;
+import com.cinchapi.concourse.server.storage.db.Block;
 
 /**
  * An {@link Optimizer} uses a strategy to optimize blocks by merging or
@@ -27,16 +28,7 @@ import com.cinchapi.concourse.server.io.Byteable;
  *
  * @author Jeff Nelson
  */
-public interface Optimizer {
-
-    /**
-     * Return {@code true} if, based on the {@link DatabaseContext}, it is
-     * necessary for this {@link Optimizer} to {@link #optimize(Block...) run}.
-     * 
-     * @param context the {@link DatabaseContext{
-     * @return {@code true} of optimization is needed
-     */
-    public boolean necessary(DatabaseContext context);
+public interface Optimizer<L extends Byteable & Comparable<L>> {
 
     /**
      * Given one or more {@link Block blocks}, execute a strategy to optimize
@@ -49,16 +41,14 @@ public interface Optimizer {
      * </p>
      * <p>
      * If the {@link Optimizer} is unable to optimize the {@link Block blocks},
-     * this method will return {@code null}.
+     * this method will return the original collection of {@code blocks}.
      * </p>
      * 
      * @param blocks one or more {@link Block blocks} to optimize.
-     * @return the optimized {@link Block blocks} or {@code null} if the
-     *         {@link Block blocks} are already fully optimized
+     * @return the optimized {@link Block blocks}
      */
     @SuppressWarnings("unchecked")
-    @Nullable
-    public <L extends Byteable & Comparable<L>, K extends Byteable & Comparable<K>, V extends Byteable & Comparable<V>> Collection<Block<L, K, V>> optimize(
-            Block<L, K, V>... blocks);
+    @Nonnull
+    public Collection<Block<L, ?, ?>> optimize(Block<L, ?, ?>... blocks);
 
 }
