@@ -53,5 +53,16 @@ public final class Keys {
         return key.indexOf('.') > 0;
     }
 
+    /**
+     * Return {@code true} if {@code key} is a function key.
+     *
+     * @param key
+     * @return {@code true} if the provided {@code key} is a valid navigation
+     *         key
+     */
+    public static boolean isFunctionKey(String key) {
+        return key.indexOf('|') > 0;
+    }
+
     private Keys() {/* no-init */}
 }

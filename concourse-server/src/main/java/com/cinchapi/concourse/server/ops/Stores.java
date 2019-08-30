@@ -15,12 +15,20 @@
  */
 package com.cinchapi.concourse.server.ops;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import com.cinchapi.ccl.Parser;
+import com.cinchapi.ccl.syntax.AbstractSyntaxTree;
+import com.cinchapi.concourse.server.query.Finder;
 import com.cinchapi.concourse.server.storage.AtomicOperation;
 import com.cinchapi.concourse.server.storage.AtomicSupport;
 import com.cinchapi.concourse.server.storage.Store;
@@ -28,9 +36,15 @@ import com.cinchapi.concourse.server.storage.Stores.OperationParameters;
 import com.cinchapi.concourse.thrift.Operator;
 import com.cinchapi.concourse.thrift.TObject;
 import com.cinchapi.concourse.time.Time;
+import com.cinchapi.concourse.util.Convert;
+import com.cinchapi.concourse.util.Parsers;
 import com.cinchapi.concourse.validate.Keys;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import com.google.common.primitives.Longs;
+import org.apache.commons.lang.StringUtils;
 
 /**
  * A collection of "smart" operations that delegate to functionality in a
@@ -132,20 +146,45 @@ public final class Stores {
      */
     public static Set<Long> find(Store store, long timestamp, String key,
             Operator operator, TObject... values) {
+
+        values = resolveFunctionalValues(values, timestamp, store);
+
+        // expectedCCL = "age > avg(age)";
+        // expectedCCL = "cost | sum bw avg(cost) 10000"
+        // friends | avg > 3
+
+        if (Keys.isFunctionKey(key)) {
+            String[] toks = key.split(" \\| ");
+            String funcKey = toks[0];
+            String func = toks[1];
+
+            Set<Long> records = store.getAllRecords();
+
+            OperationParameters args = com.cinchapi.concourse.server.storage.Stores
+                    .operationalize(operator, values);
+            Set<Long> result = records.stream()
+                    .filter(e -> {
+                        Number number = resolveFunction(func, funcKey, timestamp, store, e);
+                        return Convert.javaToThrift(number).is(args.operator(), args.values());
+                    }).collect(Collectors.toCollection(LinkedHashSet::new));
+            return result;
+        }
+
         if(Keys.isNavigationKey(key)) {
-            Map<TObject, Set<Long>> index = timestamp == Time.NONE
-                    ? browse(store, key) : browse(store, key, timestamp);
+            Map<TObject, Set<Long>> index = timestamp == Time.NONE ?
+                    browse(store, key) :
+                    browse(store, key, timestamp);
             OperationParameters args = com.cinchapi.concourse.server.storage.Stores
                     .operationalize(operator, values);
             Set<Long> records = index.entrySet().stream()
                     .filter(e -> e.getKey().is(args.operator(), args.values()))
-                    .map(e -> e.getValue()).flatMap(Set::stream)
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
+                    .map(e -> e.getValue()).flatMap(Set::stream).collect(Collectors.toCollection(LinkedHashSet::new));
             return records;
         }
         else {
-            return timestamp == Time.NONE ? store.find(key, operator, values)
-                    : store.find(timestamp, key, operator, values);
+            return timestamp == Time.NONE ?
+                    store.find(key, operator, values) :
+                    store.find(timestamp, key, operator, values);
         }
     }
 
@@ -219,10 +258,22 @@ public final class Stores {
      */
     public static Set<TObject> select(Store store, String key, long record,
             long timestamp) {
-        if(Keys.isNavigationKey(key)) {
+        if(Keys.isFunctionKey(key)) {
+            String[] toks = key.split(" \\| ");
+            String funcKey = toks[0];
+            String func = toks[1];
+
+            Set<TObject> result = Sets.newHashSet();
+            result.add(Convert.javaToThrift(resolveFunction(func, funcKey,
+                    timestamp, store, record)));
+
+            return result;
+        }
+        else if(Keys.isNavigationKey(key)) {
             if(store instanceof AtomicOperation || timestamp != Time.NONE) {
                 return Operations.traverseKeyRecordOptionalAtomic(key, record,
                         timestamp, store);
+
             }
             else if(store instanceof AtomicSupport) {
                 AtomicReference<Set<TObject>> value = new AtomicReference<>(
@@ -245,6 +296,124 @@ public final class Stores {
                     : store.select(key, record, timestamp);
         }
     }
+
+    /**
+     *
+     * @param func
+     * @param key
+     * @param timestamp
+     * @param store
+     * @param ccl
+     * @return
+     */
+    private static Number resolveFunction(String func, String key,
+            long timestamp, Store store, String ccl) {
+        Parser parser = Parsers.create(ccl);
+        AbstractSyntaxTree ast = parser.parse();
+        Set<Long> records = ast.accept(Finder.instance(), store);
+        return resolveFunction(func, key, timestamp, store, Longs.toArray(records));
+    }
+
+    /**
+     *
+     * @param func
+     * @param key
+     * @param timestamp
+     * @param store
+     * @param records
+     * @return
+     */
+    private static Number resolveFunction(String func, String key,
+            long timestamp, Store store, long... records) {
+        if(Operations.FUNCTIONS.contains(func)) {
+            try {
+                if(records.length == 0) {
+                    Method method = Operations.class.getDeclaredMethod(func + "KeyOptionalAtomic",
+                            String.class, long.class, Store.class);
+                    return (Number) method.invoke(null, key, timestamp, store);
+                }
+                else {
+                    Method method = Operations.class.getDeclaredMethod(func + "KeyRecordsOptionalAtomic",
+                            String.class, Collection.class, long.class, Store.class);
+                    return (Number) method.invoke(null, key,
+                            Arrays.stream(records).boxed().collect(Collectors.toList()),
+                            timestamp, store);
+                }
+            } catch (NoSuchMethodException e) {
+                throw new UnsupportedOperationException(
+                        "Method does not exisit ");
+            } catch (InvocationTargetException e) {
+                Throwable cause = e.getCause();
+                throw new UnsupportedOperationException(
+                        cause.getMessage());
+            } catch (IllegalAccessException e) {
+                throw new UnsupportedOperationException(
+                        "Illegal access exception ");
+            }
+        }
+        else {
+            throw new UnsupportedOperationException(
+                    "Cannot fetch value for a function does not exist. ");
+        }
+    }
+
+    /**
+     *
+     * @param values
+     * @return
+     */
+    private static TObject[] resolveFunctionalValues(TObject[] values,
+            long timestamp, Store store) {
+        TObject[] result = new TObject[values.length];
+
+        for (int i = 0; i < values.length; i++) {
+            String value = values[i].toString();
+
+            String[] toks = value.split("[(,)]");
+            Number number = null;
+            if(toks.length == 2)  {
+                String func = StringUtils.deleteWhitespace(toks[0]);
+                String funcKey = toks[1];
+
+                number = resolveFunction(func, funcKey, timestamp, store);
+            }
+            else if(toks.length == 3) {
+                String func = StringUtils.deleteWhitespace(toks[0]);
+                String funcKey = toks[1];
+                String argument = StringUtils.deleteWhitespace(toks[2]);
+
+                if(StringUtils.isNumeric(argument)) {
+                    number = resolveFunction(func, funcKey, timestamp, store, Long.valueOf(argument));
+                }
+                else {
+                    number = resolveFunction(func, funcKey, timestamp, store, argument);
+                }
+            }
+            else if (toks.length > 3) {
+                String func = StringUtils.deleteWhitespace(toks[0]);
+                String funcKey = toks[1];
+
+                List<Long> records = Lists.newArrayList();
+                for(int j = 2; j < toks.length; j++) {
+                    String tok = StringUtils.deleteWhitespace(toks[j]);
+                    if (StringUtils.isNumeric(tok)) {
+                        records.add(Long.valueOf(tok));
+                    }
+                }
+
+                number = resolveFunction(func, funcKey, timestamp, store, Longs.toArray(records));
+            }
+
+            if(number != null) {
+                result[i] = Convert.javaToThrift(number);
+            }
+            else {
+                result[i] = values[i];
+            }
+        }
+        return result;
+    }
+
 
     private Stores() {/* no-init */}
 
